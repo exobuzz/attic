@@ -175,7 +175,10 @@ Type "Yes I am sure" if you understand this and want to continue.\n""")
             else:
                 entries_s = []
                 for filename in entries:
-                    entries_s.append([filename, os.lstat(os.path.join(path, filename))])
+                    try:
+                        entries_s.append([filename, os.lstat(os.path.join(path, filename))])
+                    except OSError as e:
+                        self.print_error('%s: %s', os.path.join(path, filename), e)
                 # sort by inode for performance
                 entries_s.sort(key=lambda x: x[1].st_ino)
                 for filename, st in entries_s:
