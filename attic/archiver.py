@@ -141,14 +141,15 @@ Type "Yes I am sure" if you understand this and want to continue.\n""")
             print('-' * 78)
         return self.exit_code
 
-    def _process(self, archive, cache, excludes, exclude_caches, skip_inodes, path, restrict_dev):
+    def _process(self, archive, cache, excludes, exclude_caches, skip_inodes, path, restrict_dev, st = None):
         if exclude_path(path, excludes):
             return
-        try:
-            st = os.lstat(path)
-        except OSError as e:
-            self.print_error('%s: %s', path, e)
-            return
+        if st is None:
+            try:
+                st = os.lstat(path)
+            except OSError as e:
+                self.print_error('%s: %s', path, e)
+                return
         if (st.st_ino, st.st_dev) in skip_inodes:
             return
         # Entering a new filesystem?
@@ -172,9 +173,14 @@ Type "Yes I am sure" if you understand this and want to continue.\n""")
             except OSError as e:
                 self.print_error('%s: %s', path, e)
             else:
-                for filename in sorted(entries):
+                entries_s = []
+                for filename in entries:
+                    entries_s.append([filename, os.lstat(os.path.join(path, filename))])
+                # sort by inode for performance
+                entries_s.sort(key=lambda x: x[1].st_ino)
+                for filename, st in entries_s:
                     self._process(archive, cache, excludes, exclude_caches, skip_inodes,
-                                  os.path.join(path, filename), restrict_dev)
+                                  os.path.join(path, filename), restrict_dev, st)
         elif stat.S_ISLNK(st.st_mode):
             archive.process_symlink(path, st)
         elif stat.S_ISFIFO(st.st_mode):
